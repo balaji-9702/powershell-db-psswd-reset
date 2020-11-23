@@ -1,0 +1,50 @@
+pipeline {
+  environment {
+    registry = "tbalaji/docker"
+    registryCredential = 'dockercredentials'
+    dockerImage = ''
+	containerID = getContainerID()
+  }
+  agent any
+  stages {
+    stage('Cloning Git') {
+      steps {
+        git 'https://github.com/jefftune/docker-hello-world.git'
+      }
+    }
+    stage('Building image') {
+      steps{
+        script {
+          dockerImage = docker.build registry + ":$BUILD_NUMBER"
+        }
+      }
+    }
+    stage('Deploy Image') {
+      steps{
+        script {
+          docker.withRegistry( '', registryCredential ) {
+            dockerImage.push()
+          }
+        }
+      }
+    }
+    stage('Remove Unused docker image') {
+      steps{
+        sh "docker rmi $registry:$BUILD_NUMBER"
+      }
+    }
+	stage('docker image') {
+      steps{
+       sh "docker pull $registry:26"
+       sh "docker run -d -p 80 $registry:26"
+	   sh "docker port $containerID 80"
+      }
+    }
+  }
+}
+
+
+def getContainerID(){
+    def tag  = sh script: 'docker run -d -p 80 tbalaji/docker:26', returnStdout: true
+    return tag
+}
